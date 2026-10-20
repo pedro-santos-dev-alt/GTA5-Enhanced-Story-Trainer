@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 - 2026-10-20
+
+- Adicionada uma interface independente do ScriptHookV como add-on x64 do ReShade 6.8.0.
+- O novo add-on deteta e apresenta a versão do executável, regista a inicialização num log próprio e organiza as áreas Jogador, Armas, Veículos, Mundo e Diagnóstico.
+- As ações de jogo ficam explícita e seguramente indisponíveis até existir um adaptador nativo validado para a build detetada; a interface do ReShade não consegue substituir os natives do ScriptHookV.
+- GitHub Actions passa a compilar e publicar o `.asi` legado e o `.addon64` independente em artefactos separados, usando o SDK oficial do ReShade fixado em `v6.8.0`.
+- Documentada a causa observada: o jogo era `1.0.1158.16`, o ScriptHookV instalado suportava `1.0.1158.13` e o ASI loader não disponibilizou `ScriptHookV.dll` no processo.
+- Preservada localmente a build `.asi` 0.4.1 antes da nova implementação.
+
 ## 0.4.1 - 2026-10-20
 
 - Corrigida a causa encontrada no log: o ASI loader carregava o trainer, mas `ScriptHookV.dll` não estava carregado no processo.
