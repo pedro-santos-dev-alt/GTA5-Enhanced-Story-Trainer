@@ -47,10 +47,11 @@ O add-on visual não depende do ScriptHookV nem de um ASI loader. Continua a dep
 
 - GTA V Enhanced no modo História e uma distribuição atual do **RAGE Plugin Hook compatível com a build instalada**. A compatibilidade é determinada pelo RPH, não pelo número de versão do plugin.
 - O artefacto `GTA5EnhancedStoryTrainer-RPH` do GitHub Actions. Não inclui nem redistribui `RagePluginHook.dll`.
-- Copia `GTA5EnhancedStoryTrainer.RPH.dll` para `C#Plugins` na pasta do jogo. Inicia o jogo através do RPH, abre a consola RPH com `F5` e executa `LoadPlugin "GTA5EnhancedStoryTrainer.RPH.dll"`.
+- Copia `GTA5EnhancedStoryTrainer.RPH.dll` para `C#Plugins` na pasta do jogo. Inicia o jogo através do RPH. A distribuição RPH instalada documenta `F4` como tecla predefinida da consola; executa `LoadPlugin "GTA5EnhancedStoryTrainer.RPH.dll"` se o `startup.rphs` não o carregar automaticamente.
 - O menu abre quando o plugin é carregado. `F10` abre/fecha, setas navegam/alteram, `Enter` executa e `Backspace` volta/fecha.
 - O plugin regista ações em `GTA5EnhancedStoryTrainer-RPH.log`.
 
+Se `F4` abrir a consola do RPH e suspender temporariamente o jogo, isso é a tecla da consola, não o menu do trainer. O menu usa `F10`. Na instalação local diagnosticada em 20-10-2026, a consola foi remapeada para `F9` em `RagePluginHook.ini`. Se o trainer não aparecer, confirma que `startup.rphs` contém `LoadPlugin "GTA5EnhancedStoryTrainer.RPH.dll"` e que o DLL está em `C#Plugins`. O add-on ReShade é apenas visual/diagnóstico e as suas opções não alteram o jogo. Mais detalhes em [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 O plugin inclui ações reais de jogador, armas, veículos e mundo através da API do RPH. Usa apenas no modo História; o plugin recusa executar ações quando deteta uma sessão online. Não uses o trainer ou o RPH em GTA Online.
 
 ## Requisitos do modo legado
