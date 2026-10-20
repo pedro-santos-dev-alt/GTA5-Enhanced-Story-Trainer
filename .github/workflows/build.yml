@@ -14,7 +14,9 @@ jobs:
         uses: microsoft/setup-msbuild@v3
       - name: Checkout ReShade 6.8.0 SDK
         shell: pwsh
-        run: git clone --depth 1 --branch v6.8.0 --recurse-submodules https://github.com/crosire/reshade.git .\deps\reshade
+        run: |
+          git clone --depth 1 --branch v6.8.0 https://github.com/crosire/reshade.git .\deps\reshade
+          git -C .\deps\reshade submodule update --init --depth 1 -- deps/imgui
       - name: Build x64 ASI
         shell: pwsh
         run: msbuild .\GTA5EnhancedStoryTrainer.vcxproj /m /p:Configuration=Release /p:Platform=x64
