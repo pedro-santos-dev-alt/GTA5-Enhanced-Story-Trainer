@@ -66,7 +66,7 @@ O plugin legado verifica se o `ScriptHookV.dll` corresponde ao build do jogo e c
 
 Abre `GTA5EnhancedStoryTrainer.vcxproj` no Visual Studio e compila `Release | x64` para criar o `.asi` legado. Para o add-on independente, compila `GTA5EnhancedStoryTrainerIndependent.vcxproj`; o ReShade SDK 6.8.0 e o submódulo Dear ImGui têm de estar em `deps/reshade`.
 
-O GitHub Actions obtém o ReShade SDK 6.8.0, compila as variantes C++ e restaura os pacotes de referência RPH e .NET Framework para compilar o plugin .NET Framework 4.7.2. Os artefactos `.asi`, `.addon64` e `.RPH.dll` são separados. O DLL do anfitrião RPH não é incluído no artefacto do trainer.
+O GitHub Actions obtém o ReShade SDK 6.8.0, compila as variantes C++, e compila o plugin RPH com o compilador .NET Framework 4.7.2 usando o SDK RPH apenas como referência. Os artefactos `.asi`, `.addon64` e `.RPH.dll` são separados. O DLL do anfitrião RPH não é incluído no artefacto do trainer.
 
 ## Install
 

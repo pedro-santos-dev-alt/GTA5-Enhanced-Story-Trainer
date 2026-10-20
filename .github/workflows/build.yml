@@ -26,8 +26,15 @@ jobs:
       - name: Build RAGE Plugin Hook Story Mode plugin
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path .\build | Out-Null
-          msbuild .\GTA5EnhancedStoryTrainerRPH.csproj /restore /p:Configuration=Release /verbosity:normal 2>&1 | Tee-Object -FilePath .\build\rph-build.log
+          $sdkDir = Join-Path $env:GITHUB_WORKSPACE 'build\rph-sdk'
+          $outDir = Join-Path $env:GITHUB_WORKSPACE 'build\rph'
+          New-Item -ItemType Directory -Force -Path $sdkDir, $outDir | Out-Null
+          $package = Join-Path $sdkDir 'ragepluginhook.nupkg'
+          Invoke-WebRequest -Uri 'https://api.nuget.org/v3-flatcontainer/ragepluginhook/1.124.0/ragepluginhook.1.124.0.nupkg' -OutFile $package
+          Expand-Archive -LiteralPath $package -DestinationPath (Join-Path $sdkDir 'package') -Force
+          $sdk = Join-Path $sdkDir 'package\lib\net472\RagePluginHook.dll'
+          $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          & $compiler /nologo /target:library "/out:$outDir\GTA5EnhancedStoryTrainer.RPH.dll" "/reference:$sdk" /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll .\src\rph_plugin.cs 2>&1 | Tee-Object -FilePath .\build\rph-build.log
           $buildExit = $LASTEXITCODE
           if ($buildExit -ne 0) { exit $buildExit }
       - name: Upload ASI
