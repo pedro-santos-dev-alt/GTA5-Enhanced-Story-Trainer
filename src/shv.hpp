@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <type_traits>
 
 namespace shv {
@@ -23,9 +24,13 @@ struct Api {
     NativePush64Fn nativePush64{};
     NativeCallFn nativeCall{};
 
-    bool Bind() {
+    bool Bind(std::string& error) {
+        error.clear();
         const HMODULE hook = GetModuleHandleW(L"ScriptHookV.dll");
-        if (!hook) return false;
+        if (!hook) {
+            error = "ScriptHookV.dll is not loaded in the game process.";
+            return false;
+        }
 
         // ScriptHookV exposes its SDK functions with MSVC C++ decorated names.
         scriptRegister = reinterpret_cast<ScriptRegisterFn>(GetProcAddress(
@@ -41,8 +46,13 @@ struct Api {
         nativeCall = reinterpret_cast<NativeCallFn>(GetProcAddress(
             hook, "?nativeCall@@YAPEA_KXZ"));
 
-        return scriptRegister && scriptUnregister && scriptWait && nativeInit &&
-               nativePush64 && nativeCall;
+        if (!scriptRegister) error = "ScriptHookV export is missing: scriptRegister.";
+        else if (!scriptUnregister) error = "ScriptHookV export is missing: scriptUnregister.";
+        else if (!scriptWait) error = "ScriptHookV export is missing: scriptWait.";
+        else if (!nativeInit) error = "ScriptHookV export is missing: nativeInit.";
+        else if (!nativePush64) error = "ScriptHookV export is missing: nativePush64.";
+        else if (!nativeCall) error = "ScriptHookV export is missing: nativeCall.";
+        return error.empty();
     }
 
     template <typename T>

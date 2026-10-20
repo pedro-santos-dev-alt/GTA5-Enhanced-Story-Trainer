@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -66,6 +67,8 @@ constexpr UINT64 END_TEXT_COMMAND_DISPLAY_TEXT = 0xCD015E5BB0D96A57;
 shv::Api g_api;
 HMODULE g_module{};
 std::wstring g_logPath;
+std::atomic_bool g_registered{false};
+std::atomic_bool g_shuttingDown{false};
 std::array<bool, 256> g_previousKeyDown{};
 
 enum class Page { Main, Player, Weapons, Vehicle, World };
@@ -192,11 +195,12 @@ bool InitializeLogger() {
     g_logPath = modulePath;
 
     const HANDLE file = CreateFileW(g_logPath.c_str(), GENERIC_WRITE,
-        FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) {
         g_logPath.clear();
         return false;
     }
+    SetFilePointer(file, 0, nullptr, FILE_END);
     CloseHandle(file);
     return true;
 }
@@ -675,19 +679,55 @@ void ScriptMain() {
     }
 }
 
+DWORD WINAPI BootstrapThread(LPVOID) {
+    if (!InitializeLogger()) {
+        OutputDebugStringW(L"GTA5 Enhanced Story Trainer: could not create its log file.\n");
+    } else {
+        Log("INFO", "ASI loaded; delayed ScriptHookV initialization started.");
+    }
+
+    constexpr int kAttempts = 60;
+    constexpr DWORD kRetryDelayMs = 1000;
+    std::string lastError;
+    for (int attempt = 1; attempt <= kAttempts; ++attempt) {
+        if (g_shuttingDown.load()) return 0;
+
+        if (g_api.Bind(lastError)) {
+            Log("INFO", "ScriptHookV API is available; registering trainer script.");
+            g_api.scriptRegister(g_module, ScriptMain);
+            g_registered.store(true);
+            Log("INFO", "Trainer script registered with ScriptHookV.");
+            return 0;
+        }
+
+        if (attempt == 1 || attempt % 10 == 0) {
+            Log("WARN", "ScriptHookV initialization attempt " + std::to_string(attempt) +
+                "/" + std::to_string(kAttempts) + " failed: " + lastError);
+        }
+        Sleep(kRetryDelayMs);
+    }
+
+    Log("ERROR", "ScriptHookV did not become available after 60 seconds; trainer script was not registered. Last error: " + lastError);
+    return 0;
+}
+
 }  // namespace
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         g_module = module;
         DisableThreadLibraryCalls(module);
-        if (!g_api.Bind()) {
-            OutputDebugStringW(L"GTA5 Enhanced Story Trainer: ScriptHookV API binding failed.\n");
-            return FALSE;
+        const HANDLE thread = CreateThread(nullptr, 0, BootstrapThread, nullptr, 0, nullptr);
+        if (thread) {
+            CloseHandle(thread);
+        } else {
+            OutputDebugStringW(L"GTA5 Enhanced Story Trainer: could not start initialization thread.\n");
         }
-        g_api.scriptRegister(module, ScriptMain);
+        // Keep the ASI loaded so the bootstrap can wait for ScriptHookV if load order varies.
+        return TRUE;
     } else if (reason == DLL_PROCESS_DETACH) {
-        if (g_api.scriptUnregister) g_api.scriptUnregister(module);
+        g_shuttingDown.store(true);
+        if (g_registered.load() && g_api.scriptUnregister) g_api.scriptUnregister(module);
     }
     return TRUE;
 }
