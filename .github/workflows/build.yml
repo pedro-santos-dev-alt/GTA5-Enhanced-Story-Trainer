@@ -10,6 +10,8 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v3
       - name: Build x64 ASI
         shell: pwsh
         run: msbuild .\GTA5EnhancedStoryTrainer.vcxproj /m /p:Configuration=Release /p:Platform=x64
