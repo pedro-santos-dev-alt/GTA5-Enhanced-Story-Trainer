@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 - RPH gameplay plugin
+
+- Added a .NET Framework RAGE Plugin Hook plugin with actual Story Mode native calls for player, weapons, vehicle and world actions.
+- Added an in-game menu that opens when the RPH plugin is loaded; F10 toggles it.
+- Added a dedicated build artifact and a gameplay log file.
+- Documented that the ReShade add-on is diagnostic only and that RPH is a separate runtime dependency.
+- Compatibility remains dependent on the installed RPH release; the RPH/LSPDFR Enhanced Preview listing covers GTA Enhanced 1158.16, but this trainer plugin still requires in-game validation.
+
 ## 0.5.0 - 2026-10-20
 
 - Adicionada uma interface independente do ScriptHookV como add-on x64 do ReShade 6.8.0.

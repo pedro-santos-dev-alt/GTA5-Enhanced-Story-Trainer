@@ -1,14 +1,14 @@
 # GTA V Enhanced Story Trainer
 
-Trainer para o **modo História/offline do GTA V Enhanced**, com duas implementações separadas: o plugin `.asi` legado, que depende do ScriptHookV, e o novo add-on visual independente do ScriptHookV, que usa o ReShade.
+Trainer para o **modo História do GTA V Enhanced**. O repositório mantém três variantes: o plugin `.asi` legado (ScriptHookV), um overlay ReShade apenas de diagnóstico e o plugin funcional para RAGE Plugin Hook (RPH).
 
-## Estado da versão independente
+## Estado do overlay ReShade
 
-A versão independente abre uma interface de diagnóstico dentro do menu de add-ons do ReShade e deteta a versão do executável do jogo. **As ações de jogo estão deliberadamente bloqueadas:** o add-on ainda não tem um adaptador nativo validado para GTA V Enhanced. O ReShade desenha a interface, mas não fornece acesso às funções internas do GTA necessárias para spawnar veículos, dar armas ou alterar o jogador.
+O add-on ReShade é somente visual/diagnóstico: os seus botões não alteram o jogo. Para ações reais, usa o novo artefacto **GTA5EnhancedStoryTrainer-RPH**. Esse plugin chama natives do jogo através do RAGE Plugin Hook, uma API de scripting diferente do ScriptHookV e do ReShade.
 
-Na instalação diagnosticada em 20-10-2026, o jogo é `1.0.1158.16` e o ScriptHookV disponível é `1.0.1158.13`. O ASI loader carregava o trainer, mas o ScriptHookV não estava carregado no processo. Por isso, o código legado nunca registava o script que desenha o menu ou lê o F10. A nova interface separa o desenho do menu do acesso ao estado do jogo e não tenta carregar ou chamar ScriptHookV.
+Na instalação diagnosticada em 20-10-2026, o jogo é `1.0.1158.16` e o ScriptHookV disponível é `1.0.1158.13`. A página do RPH/LSPDFR Enhanced Preview lista suporte ao jogo `1158.16`. O plugin novo foi criado para o RPH; a experiência em jogo ainda precisa de confirmação na máquina do utilizador.
 
-Consulta [docs/INDEPENDENT_MODE.md](docs/INDEPENDENT_MODE.md) para instalação, arquitetura, limitações e atualização por versão do jogo.
+Consulta [docs/INDEPENDENT_MODE.md](docs/INDEPENDENT_MODE.md) para a diferença entre ReShade e RPH e os passos de instalação.
 
 ## Implementação legada com ScriptHookV
 
@@ -34,7 +34,7 @@ O `.asi` legado mantém as funções de trainer descritas abaixo, mas só pode f
 
 O menu abre automaticamente quando o script do trainer arranca. Usa `F10` para fechar ou voltar a abrir. `Backspace` volta à página principal e fecha o menu quando já estás nessa página. O atalho foi mudado de `F7` para evitar conflito com a tecla de troca de personagem configurada no jogo.
 
-## Requisitos do modo independente
+## Requisitos do overlay ReShade
 
 - GTA V Enhanced para Windows, iniciado no modo História.
 - ReShade **com suporte completo a add-ons**. O ecrã de ReShade enviado pelo utilizador mostra o separador Add-ons e a versão 6.8.0.
@@ -42,6 +42,16 @@ O menu abre automaticamente quando o script do trainer arranca. Usa `F10` para f
 - Abre o ReShade com `Home` e escolhe o add-on **GTA V Story Trainer**. O add-on regista `GTA5EnhancedStoryTrainerIndependent.log` na pasta do jogo.
 
 O add-on visual não depende do ScriptHookV nem de um ASI loader. Continua a depender do ReShade como anfitrião gráfico e de interface.
+
+## Modo funcional com RAGE Plugin Hook
+
+- GTA V Enhanced no modo História e uma distribuição atual do **RAGE Plugin Hook compatível com a build instalada**. A compatibilidade é determinada pelo RPH, não pelo número de versão do plugin.
+- O artefacto `GTA5EnhancedStoryTrainer-RPH` do GitHub Actions. Não inclui nem redistribui `RagePluginHook.dll`.
+- Copia `GTA5EnhancedStoryTrainer.RPH.dll` para `C#Plugins` na pasta do jogo. Inicia o jogo através do RPH, abre a consola RPH com `F5` e executa `LoadPlugin "GTA5EnhancedStoryTrainer.RPH.dll"`.
+- O menu abre quando o plugin é carregado. `F10` abre/fecha, setas navegam/alteram, `Enter` executa e `Backspace` volta/fecha.
+- O plugin regista ações em `GTA5EnhancedStoryTrainer-RPH.log`.
+
+O plugin inclui ações reais de jogador, armas, veículos e mundo através da API do RPH. Usa apenas no modo História; o plugin recusa executar ações quando deteta uma sessão online. Não uses o trainer ou o RPH em GTA Online.
 
 ## Requisitos do modo legado
 
@@ -56,7 +66,7 @@ O plugin legado verifica se o `ScriptHookV.dll` corresponde ao build do jogo e c
 
 Abre `GTA5EnhancedStoryTrainer.vcxproj` no Visual Studio e compila `Release | x64` para criar o `.asi` legado. Para o add-on independente, compila `GTA5EnhancedStoryTrainerIndependent.vcxproj`; o ReShade SDK 6.8.0 e o submódulo Dear ImGui têm de estar em `deps/reshade`.
 
-O GitHub Actions obtém o ReShade SDK 6.8.0, compila ambas as variantes x64 e publica os artefactos `.asi` e `.addon64` separadamente. O repositório não contém ficheiros do jogo nem binários de terceiros.
+O GitHub Actions obtém o ReShade SDK 6.8.0, compila as variantes C++ e restaura o pacote de referência RPH `RagePluginHook` 1.124.0 para compilar o plugin .NET Framework 4.7.2. Os artefactos `.asi`, `.addon64` e `.RPH.dll` são separados. O DLL do anfitrião RPH não é incluído no artefacto do trainer.
 
 ## Install
 
@@ -83,13 +93,15 @@ O trainer legado cria `GTA5EnhancedStoryTrainer.log` ao lado do `.asi`. O add-on
 - **O log não mostra a linha de F10:** confirma que a janela do jogo tem foco e volta a testar com a tecla `F10` num teclado físico.
 - **O add-on independente não aparece:** confirma que a instalação do ReShade tem suporte completo a add-ons, que o ficheiro `.addon64` está na pasta do ReShade e consulta `ReShade.log`.
 - **O menu aparece mas as ações estão indisponíveis:** é o comportamento esperado até ser implementado e validado um adaptador de jogo para essa build. Atualizar a interface gráfica, por si só, não cria acesso às funções internas do GTA.
+- **Quero que as opções alterem o jogo:** usa o artefacto RPH. O add-on ReShade continua a ser apenas diagnóstico; não apresenta as suas opções como funcionais.
+- **O plugin RPH não carrega:** confirma se instalaste uma versão RPH que declara suporte à build do jogo, se o DLL está em `C#Plugins`, se o nome passado a `LoadPlugin` está correto e consulta `RagePluginHook.log` e `GTA5EnhancedStoryTrainer-RPH.log`.
 
 Para pedir ajuda, fecha o jogo e partilha `GTA5EnhancedStoryTrainer.log` e `asiloader.log`. Remove nomes de utilizador ou outros dados pessoais dos caminhos antes de os publicar.
 
 ## Safety and limitations
 
 - Apenas modo História/offline. Não uses no GTA Online nem no FiveM. O plugin desativa o menu durante uma sessão online como proteção adicional.
-- A interface independente não executa ações no jogo. Um adaptador para o motor do GTA precisa de engenharia reversa e testes por build; não se ativa automaticamente em builds desconhecidos.
+- O add-on ReShade é diagnóstico e não executa ações. O plugin funcional depende do RPH e da compatibilidade dessa versão do RPH com a build instalada do jogo.
 - O `.asi` legado só funciona com ScriptHookV compatível com a versão exata do jogo.
 - O projeto não altera ficheiros originais do GTA; chama natives do ScriptHookV durante a execução.
 - O registo pode não ser criado se o ASI não carregar ou se o script não arrancar; nesse caso, começa por consultar `asiloader.log`.

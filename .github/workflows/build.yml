@@ -23,6 +23,9 @@ jobs:
       - name: Build independent ReShade add-on
         shell: pwsh
         run: msbuild .\GTA5EnhancedStoryTrainerIndependent.vcxproj /m /p:Configuration=Release /p:Platform=x64 "/p:ReShadeSDKDir=$env:GITHUB_WORKSPACE\deps\reshade"
+      - name: Build RAGE Plugin Hook Story Mode plugin
+        shell: pwsh
+        run: msbuild .\GTA5EnhancedStoryTrainerRPH.csproj /restore /p:Configuration=Release
       - name: Upload ASI
         uses: actions/upload-artifact@v4
         with:
@@ -33,3 +36,8 @@ jobs:
         with:
           name: GTA5EnhancedStoryTrainer-Independent
           path: build/independent/GTA5EnhancedStoryTrainerIndependent.addon64
+      - name: Upload working RPH plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA5EnhancedStoryTrainer-RPH
+          path: build/rph/GTA5EnhancedStoryTrainer.RPH.dll
