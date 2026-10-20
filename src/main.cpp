@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstdint>
 #include <functional>
@@ -64,6 +65,8 @@ constexpr UINT64 END_TEXT_COMMAND_DISPLAY_TEXT = 0xCD015E5BB0D96A57;
 
 shv::Api g_api;
 HMODULE g_module{};
+std::wstring g_logPath;
+std::array<bool, 256> g_previousKeyDown{};
 
 enum class Page { Main, Player, Weapons, Vehicle, World };
 
@@ -129,14 +132,80 @@ void NativeVoid(UINT64 hash, Args... args) {
     g_api.CallVoid(hash, args...);
 }
 
-bool Pressed(int key) {
-    return (GetAsyncKeyState(key) & 1) != 0;
+void Log(const char* level, const std::string& message) {
+    if (g_logPath.empty()) return;
+
+    SYSTEMTIME now{};
+    GetLocalTime(&now);
+    char line[2048]{};
+    const int length = sprintf_s(line, sizeof(line),
+        "%04u-%02u-%02u %02u:%02u:%02u.%03u [%s] %s\r\n",
+        now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute,
+        now.wSecond, now.wMilliseconds, level, message.c_str());
+    if (length <= 0) return;
+
+    const HANDLE file = CreateFileW(g_logPath.c_str(), FILE_APPEND_DATA,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+
+    DWORD written{};
+    WriteFile(file, line, static_cast<DWORD>(length), &written, nullptr);
+    FlushFileBuffers(file);
+    CloseHandle(file);
+}
+
+bool PollKey(int key) {
+    const size_t index = static_cast<size_t>(key);
+    const bool down = (GetAsyncKeyState(key) & 0x8000) != 0;
+    const bool pressed = down && !g_previousKeyDown[index];
+    g_previousKeyDown[index] = down;
+    return pressed;
+}
+
+struct KeyPresses {
+    bool f7{};
+    bool up{};
+    bool down{};
+    bool back{};
+    bool left{};
+    bool right{};
+    bool enter{};
+};
+
+KeyPresses PollKeys() {
+    // Sample all controls every game tick, even when another key also changed.
+    return {PollKey(VK_F7), PollKey(VK_UP), PollKey(VK_DOWN), PollKey(VK_BACK),
+            PollKey(VK_LEFT), PollKey(VK_RIGHT), PollKey(VK_RETURN)};
+}
+
+bool InitializeLogger() {
+    wchar_t modulePath[MAX_PATH]{};
+    const DWORD length = GetModuleFileNameW(g_module, modulePath, MAX_PATH);
+    if (length == 0 || length >= MAX_PATH) return false;
+
+    wchar_t* separator = wcsrchr(modulePath, L'\\');
+    if (!separator) separator = wcsrchr(modulePath, L'/');
+    if (!separator) return false;
+    *(separator + 1) = L'\0';
+    if (wcscat_s(modulePath, L"GTA5EnhancedStoryTrainer.log") != 0) return false;
+    g_logPath = modulePath;
+
+    const HANDLE file = CreateFileW(g_logPath.c_str(), GENERIC_WRITE,
+        FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        g_logPath.clear();
+        return false;
+    }
+    CloseHandle(file);
+    return true;
 }
 
 void SetStatus(const std::string& message, bool error = false) {
     g_state.status = message;
     g_state.statusIsError = error;
     g_state.statusUntil = GetTickCount() + 3000;
+    Log(error ? "WARN" : "INFO", message);
 }
 
 bool InOnlineSession() {
@@ -509,21 +578,21 @@ void DrawMenu(const std::vector<MenuItem>& items) {
     }
 }
 
-void HandleMenuInput(const std::vector<MenuItem>& items) {
+void HandleMenuInput(const std::vector<MenuItem>& items, const KeyPresses& keys) {
     if (items.empty()) return;
 
-    if (Pressed(VK_UP)) {
+    if (keys.up) {
         g_state.selected = (g_state.selected + static_cast<int>(items.size()) - 1) % static_cast<int>(items.size());
-    } else if (Pressed(VK_DOWN)) {
+    } else if (keys.down) {
         g_state.selected = (g_state.selected + 1) % static_cast<int>(items.size());
-    } else if (Pressed(VK_BACK)) {
+    } else if (keys.back) {
         if (g_state.page == Page::Main) g_state.menuOpen = false;
         else OpenPage(Page::Main);
-    } else if (Pressed(VK_LEFT) && items[static_cast<size_t>(g_state.selected)].hasAdjust) {
+    } else if (keys.left && items[static_cast<size_t>(g_state.selected)].hasAdjust) {
         items[static_cast<size_t>(g_state.selected)].adjust(-1);
-    } else if (Pressed(VK_RIGHT) && items[static_cast<size_t>(g_state.selected)].hasAdjust) {
+    } else if (keys.right && items[static_cast<size_t>(g_state.selected)].hasAdjust) {
         items[static_cast<size_t>(g_state.selected)].adjust(1);
-    } else if (Pressed(VK_RETURN)) {
+    } else if (keys.enter) {
         if (items[static_cast<size_t>(g_state.selected)].activate) {
             items[static_cast<size_t>(g_state.selected)].activate();
         }
@@ -556,26 +625,51 @@ void ApplyContinuousOptions() {
 
 void ScriptMain() {
     std::srand(GetTickCount());
+    const bool loggerReady = InitializeLogger();
+    if (loggerReady) Log("INFO", "ScriptHookV started the trainer script.");
+    else OutputDebugStringW(L"GTA5 Enhanced Story Trainer: could not create its log file.\n");
     SetStatus("Loaded. Press F7 to open the trainer.");
-    for (;;) {
-        if (Pressed(VK_F7)) g_state.menuOpen = !g_state.menuOpen;
 
-        if (InOnlineSession()) {
+    DWORD lastHeartbeat = GetTickCount();
+    bool hasPreviousSessionState = false;
+    bool previousOnlineState = false;
+    for (;;) {
+        const KeyPresses keys = PollKeys();
+        if (keys.f7) {
+            g_state.menuOpen = !g_state.menuOpen;
+            Log("INFO", g_state.menuOpen ? "F7 detected: menu opened." : "F7 detected: menu closed.");
+        }
+
+        const bool online = InOnlineSession();
+        if (!hasPreviousSessionState || online != previousOnlineState) {
+            Log("INFO", online ? "Game session state: online." : "Game session state: story/offline.");
+            hasPreviousSessionState = true;
+            previousOnlineState = online;
+        }
+
+        const DWORD now = GetTickCount();
+        if (now - lastHeartbeat >= 30000) {
+            Log("INFO", std::string("Heartbeat: script active; menu=") +
+                (g_state.menuOpen ? "open" : "closed") +
+                (online ? "; session=online." : "; session=story/offline."));
+            lastHeartbeat = now;
+        }
+
+        if (online) {
             if (g_state.menuOpen) {
                 DrawRect(0.5f, 0.90f, 0.48f, 0.06f, 35, 12, 15, 230);
                 DrawText("STORY MODE ONLY - MENU DISABLED ONLINE", 0.29f, 0.883f, 0.32f, 255, 150, 150);
             }
-            g_api.scriptWait(0);
-            continue;
+        } else {
+            ApplyContinuousOptions();
+            if (g_state.menuOpen) {
+                const std::vector<MenuItem> items = BuildItems();
+                HandleMenuInput(items, keys);
+                DrawMenu(items);
+            }
         }
-
-        ApplyContinuousOptions();
-        if (g_state.menuOpen) {
-            const std::vector<MenuItem> items = BuildItems();
-            HandleMenuInput(items);
-            DrawMenu(items);
-        }
-        g_api.scriptWait(g_state.menuOpen ? 0 : 50);
+        // Poll once per game tick so brief F7 presses are not missed while the menu is closed.
+        g_api.scriptWait(0);
     }
 }
 
