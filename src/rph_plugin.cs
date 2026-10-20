@@ -60,8 +60,9 @@ namespace GTA5EnhancedStoryTrainer
 
         private static void UpdateKeys()
         {
-            bool f10 = Game.IsKeyDown(Keys.F10), up = Game.IsKeyDown(Keys.Up), down = Game.IsKeyDown(Keys.Down);
-            bool left = Game.IsKeyDown(Keys.Left), right = Game.IsKeyDown(Keys.Right), enter = Game.IsKeyDown(Keys.Enter), back = Game.IsKeyDown(Keys.Back);
+            KeyboardState keyboard = Game.GetKeyboardState();
+            bool f10 = keyboard.IsDown(Keys.F10), up = keyboard.IsDown(Keys.Up), down = keyboard.IsDown(Keys.Down);
+            bool left = keyboard.IsDown(Keys.Left), right = keyboard.IsDown(Keys.Right), enter = keyboard.IsDown(Keys.Enter), back = keyboard.IsDown(Keys.Back);
             if (f10 && !_f10WasDown) { _menuOpen = !_menuOpen; Log("INFO", "F10 toggled menu=" + _menuOpen); }
             if (_menuOpen && !IsOnline())
             {
