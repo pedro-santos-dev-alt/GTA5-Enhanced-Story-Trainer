@@ -164,7 +164,7 @@ bool PollKey(int key) {
 }
 
 struct KeyPresses {
-    bool f7{};
+    bool f10{};
     bool up{};
     bool down{};
     bool back{};
@@ -175,7 +175,7 @@ struct KeyPresses {
 
 KeyPresses PollKeys() {
     // Sample all controls every game tick, even when another key also changed.
-    return {PollKey(VK_F7), PollKey(VK_UP), PollKey(VK_DOWN), PollKey(VK_BACK),
+    return {PollKey(VK_F10), PollKey(VK_UP), PollKey(VK_DOWN), PollKey(VK_BACK),
             PollKey(VK_LEFT), PollKey(VK_RIGHT), PollKey(VK_RETURN)};
 }
 
@@ -566,7 +566,7 @@ void DrawMenu(const std::vector<MenuItem>& items) {
     }
 
     const float footerY = top + height - 0.034f;
-    DrawText("F7 menu   Arrows move   Enter select   Backspace back",
+    DrawText("F10 open/close   Arrows move   Enter select   Backspace back/close",
              left + 0.012f, footerY, 0.19f, 170, 180, 195);
 
     if (GetTickCount() < g_state.statusUntil && !g_state.status.empty()) {
@@ -628,16 +628,18 @@ void ScriptMain() {
     const bool loggerReady = InitializeLogger();
     if (loggerReady) Log("INFO", "ScriptHookV started the trainer script.");
     else OutputDebugStringW(L"GTA5 Enhanced Story Trainer: could not create its log file.\n");
-    SetStatus("Loaded. Press F7 to open the trainer.");
+    g_state.menuOpen = true;
+    SetStatus("Trainer ready. The menu opened automatically; press F10 to close or reopen.");
+    Log("INFO", "Menu auto-opened when the trainer script started.");
 
     DWORD lastHeartbeat = GetTickCount();
     bool hasPreviousSessionState = false;
     bool previousOnlineState = false;
     for (;;) {
         const KeyPresses keys = PollKeys();
-        if (keys.f7) {
+        if (keys.f10) {
             g_state.menuOpen = !g_state.menuOpen;
-            Log("INFO", g_state.menuOpen ? "F7 detected: menu opened." : "F7 detected: menu closed.");
+            Log("INFO", g_state.menuOpen ? "F10 detected: menu opened." : "F10 detected: menu closed.");
         }
 
         const bool online = InOnlineSession();
@@ -668,7 +670,7 @@ void ScriptMain() {
                 DrawMenu(items);
             }
         }
-        // Poll once per game tick so brief F7 presses are not missed while the menu is closed.
+        // Poll once per game tick so brief hotkey presses are not missed while the menu is closed.
         g_api.scriptWait(0);
     }
 }
