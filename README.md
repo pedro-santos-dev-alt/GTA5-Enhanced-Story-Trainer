@@ -49,10 +49,13 @@ Para remover, fecha o jogo e apaga `GTA5EnhancedStoryTrainer.asi`.
 
 ## Logs e resolução de problemas
 
-Depois de o script arrancar, o trainer cria `GTA5EnhancedStoryTrainer.log` ao lado do `.asi`, na pasta do jogo. O ficheiro regista o arranque do script, abertura automática do menu, mudanças entre modo História e sessão online, deteção de cada pressão em `F10`, mensagens de estado/erro e um heartbeat a cada 30 segundos. Não regista cada frame.
+O trainer cria `GTA5EnhancedStoryTrainer.log` ao lado do `.asi`, na pasta do jogo. Primeiro regista o carregamento do plugin e as tentativas de encontrar o `ScriptHookV.dll`; depois regista o arranque do script, abertura automática do menu, mudanças entre modo História e sessão online, deteção de cada pressão em `F10`, mensagens de estado/erro e um heartbeat a cada 30 segundos. Não regista cada frame. A inicialização espera até 60 segundos pelo ScriptHookV, para tolerar diferenças na ordem de carregamento dos plugins.
 
 - **Não existe `GTA5EnhancedStoryTrainer.asi` no `asiloader.log`:** o ASI loader não encontrou o trainer. Confirma que o `.asi` foi extraído e copiado para a mesma pasta de `GTA5_Enhanced.exe`.
-- **O `asiloader.log` lista o `.asi`, mas não existe `GTA5EnhancedStoryTrainer.log`:** o loader encontrou o ficheiro, mas o script não chegou a arrancar ou não conseguiu criar o log. Confirma a compatibilidade do ScriptHookV e as mensagens do `asiloader.log`.
+- **O `asiloader.log` lista o `.asi` como falhado:** confirma que o ficheiro não está bloqueado pelo Windows e que corresponde à arquitetura x64. A versão atual deixa de rejeitar o plugin quando o ScriptHookV ainda não arrancou; atualiza o `.asi` e consulta o log próprio.
+- **O `.asi` carrega mas não existe `GTA5EnhancedStoryTrainer.log`:** o plugin não conseguiu iniciar o logger ou a thread de arranque. Consulta `asiloader.log`; se existir, confirma permissões de escrita na pasta do jogo.
+- **O log indica que `ScriptHookV.dll` não está carregado ou que falta um export:** confirma se tens a edição atual do ScriptHookV compatível com GTA V Enhanced e se o DLL está ao lado de `GTA5_Enhanced.exe`. O log repete a tentativa até 60 segundos e regista o último erro.
+- **O log mostra `Trainer script registered` mas não mostra `ScriptHookV started the trainer script`:** o registo foi aceite, mas o ScriptHookV ainda não executou o script; fecha o jogo e revê a compatibilidade/versão do hook.
 - **O log mostra `Menu auto-opened` ou `F10 detected: menu opened`, mas o menu não aparece:** o script arrancou; consulta as mensagens seguintes e testa sem outros overlays/mods gráficos para isolar um conflito de renderização.
 - **O log não mostra a linha de F10:** confirma que a janela do jogo tem foco e volta a testar com a tecla `F10` num teclado físico.
 

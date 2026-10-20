@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 - 2026-10-20
+
+- Adiado o registo do script para uma thread de arranque, evitando depender de o `ScriptHookV.dll` estar pronto durante o carregamento do `.asi`.
+- O trainer passa a esperar até 60 segundos pelo ScriptHookV e regista no log cada motivo de falha, incluindo DLL ausente e exports em falta.
+- O `DllMain` deixa de rejeitar o plugin só porque o ScriptHookV ainda não está disponível naquele instante; o estado de carregamento fica visível no log.
+- Preservado o log entre o arranque do plugin e o arranque do script, para não apagar os diagnósticos iniciais.
+
 ## 0.3.0 - 2026-10-20
 
 - Alterado o atalho de abrir/fechar de F7 para F10 para evitar conflito com a troca de personagem configurada pelo utilizador.
