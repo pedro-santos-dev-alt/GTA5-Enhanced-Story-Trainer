@@ -1,12 +1,62 @@
 #pragma once
 
 #include <Windows.h>
+#include <winver.h>
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 namespace shv {
+
+inline bool GetEnhancedBuild(const std::wstring& path, DWORD& build, DWORD& patch,
+                             std::string& error) {
+    DWORD ignored{};
+    const DWORD infoSize = GetFileVersionInfoSizeW(path.c_str(), &ignored);
+    if (infoSize == 0) {
+        error = "Could not read file version (Win32 error " + std::to_string(GetLastError()) + ").";
+        return false;
+    }
+
+    std::vector<BYTE> versionData(infoSize);
+    if (!GetFileVersionInfoW(path.c_str(), 0, infoSize, versionData.data())) {
+        error = "Could not read file version details (Win32 error " + std::to_string(GetLastError()) + ").";
+        return false;
+    }
+
+    void* fixedInfoData{};
+    UINT fixedInfoSize{};
+    if (!VerQueryValueW(versionData.data(), L"\\",
+                        &fixedInfoData, &fixedInfoSize) ||
+        !fixedInfoData || fixedInfoSize < sizeof(VS_FIXEDFILEINFO)) {
+        error = "File does not contain a readable fixed version resource.";
+        return false;
+    }
+
+    const auto* fixedInfo = static_cast<const VS_FIXEDFILEINFO*>(fixedInfoData);
+    build = HIWORD(fixedInfo->dwProductVersionLS);
+    patch = LOWORD(fixedInfo->dwProductVersionLS);
+    return true;
+}
+
+inline bool ModulePath(HMODULE module, std::wstring& path) {
+    wchar_t buffer[MAX_PATH]{};
+    const DWORD length = GetModuleFileNameW(module, buffer, MAX_PATH);
+    if (length == 0 || length >= MAX_PATH) return false;
+    path.assign(buffer, length);
+    return true;
+}
+
+inline bool FileInModuleDirectory(HMODULE module, const wchar_t* filename,
+                                  std::wstring& path) {
+    if (!ModulePath(module, path)) return false;
+    const size_t separator = path.find_last_of(L"\\/");
+    if (separator == std::wstring::npos) return false;
+    path.resize(separator + 1);
+    path += filename;
+    return true;
+}
 
 using ScriptMain = void (*)();
 using ScriptRegisterFn = void(__cdecl*)(HMODULE, ScriptMain);
@@ -24,12 +74,53 @@ struct Api {
     NativePush64Fn nativePush64{};
     NativeCallFn nativeCall{};
 
-    bool Bind(std::string& error) {
+    bool Bind(HMODULE pluginModule, std::string& error, bool& loadedHook) {
         error.clear();
-        const HMODULE hook = GetModuleHandleW(L"ScriptHookV.dll");
-        if (!hook) {
-            error = "ScriptHookV.dll is not loaded in the game process.";
+        loadedHook = false;
+        HMODULE hook = GetModuleHandleW(L"ScriptHookV.dll");
+        std::wstring hookPath;
+        if (hook) {
+            if (!ModulePath(hook, hookPath)) {
+                error = "INCOMPATIBLE: Could not resolve the loaded ScriptHookV.dll path.";
+                return false;
+            }
+        } else if (!FileInModuleDirectory(pluginModule, L"ScriptHookV.dll", hookPath)) {
+            error = "Could not resolve ScriptHookV.dll in the trainer's game folder.";
             return false;
+        }
+
+        std::wstring gamePath;
+        if (!ModulePath(nullptr, gamePath)) {
+            error = "Could not resolve the running GTA V Enhanced executable path.";
+            return false;
+        }
+
+        DWORD hookBuild{}, hookPatch{}, gameBuild{}, gamePatch{};
+        std::string versionError;
+        if (!GetEnhancedBuild(hookPath, hookBuild, hookPatch, versionError)) {
+            error = "Could not verify ScriptHookV.dll compatibility: " + versionError;
+            return false;
+        }
+        if (!GetEnhancedBuild(gamePath, gameBuild, gamePatch, versionError)) {
+            error = "Could not verify GTA V Enhanced compatibility: " + versionError;
+            return false;
+        }
+        if (hookBuild != gameBuild || hookPatch != gamePatch) {
+            error = "INCOMPATIBLE: ScriptHookV supports GTA V Enhanced " +
+                std::to_string(hookBuild) + "." + std::to_string(hookPatch) +
+                ", but the installed game is " + std::to_string(gameBuild) + "." +
+                std::to_string(gamePatch) + ". The hook was not loaded.";
+            return false;
+        }
+
+        if (!hook) {
+            hook = LoadLibraryW(hookPath.c_str());
+            if (!hook) {
+                error = "Could not load ScriptHookV.dll from the game folder; Win32 error " +
+                    std::to_string(GetLastError()) + ".";
+                return false;
+            }
+            loadedHook = true;
         }
 
         // ScriptHookV exposes its SDK functions with MSVC C++ decorated names.

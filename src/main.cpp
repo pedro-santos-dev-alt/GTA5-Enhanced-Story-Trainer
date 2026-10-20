@@ -692,11 +692,19 @@ DWORD WINAPI BootstrapThread(LPVOID) {
     for (int attempt = 1; attempt <= kAttempts; ++attempt) {
         if (g_shuttingDown.load()) return 0;
 
-        if (g_api.Bind(lastError)) {
-            Log("INFO", "ScriptHookV API is available; registering trainer script.");
+        bool loadedHook = false;
+        if (g_api.Bind(g_module, lastError, loadedHook)) {
+            Log("INFO", loadedHook
+                ? "ScriptHookV.dll was loaded from the game folder; registering trainer script."
+                : "ScriptHookV.dll was already loaded; registering trainer script.");
             g_api.scriptRegister(g_module, ScriptMain);
             g_registered.store(true);
             Log("INFO", "Trainer script registered with ScriptHookV.");
+            return 0;
+        }
+
+        if (lastError.rfind("INCOMPATIBLE:", 0) == 0) {
+            Log("ERROR", lastError);
             return 0;
         }
 
