@@ -2,6 +2,7 @@
 
 ## 0.6.0 - RPH gameplay plugin
 
+- Estado em 20-10-2026: **em desenvolvimento, não validado no jogo**. O RPH recebeu `LoadPlugin`, mas o log não encontrou o DLL em `Plugins`; foi instalada uma cópia nesse caminho e o teste após correção está pendente.
 - Added a .NET Framework RAGE Plugin Hook plugin with actual Story Mode native calls for player, weapons, vehicle and world actions.
 - Added an in-game menu that opens when the RPH plugin is loaded; F10 toggles it.
 - Added a dedicated build artifact and a gameplay log file.
